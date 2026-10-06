@@ -1,0 +1,7 @@
+TEAM_ID=
+
+PRODUCT_NAME=Gestorfamiliardespesas
+PRODUCT_BUNDLE_IDENTIFIER=co.jmessias.gestor_familiar_despesas.Gestorfamiliardespesas$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0
