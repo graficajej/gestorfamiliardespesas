@@ -85,6 +85,12 @@ Domain NÃO deve depender de frameworks de UI.
 
 Data implementa contratos definidos no Domain.
 
+O composition root liga implementações concretas aos contratos. No MVP,
+`composition.ManagementViewModelFactory` cria os repositories SQLDelight;
+as entradas de plataforma criam o driver e fornecem o ViewModel à UI.
+ViewModels dependem somente dos contratos de repository e casos de uso do
+Domain, não de `AppDatabase` nem de implementações SQLDelight.
+
 ## 5. Estrutura sugerida
 
 ``` text
@@ -316,6 +322,12 @@ AppError
 ```
 
 A camada de apresentação converte erros em mensagens amigáveis.
+
+Falhas de validação e ausência de dados podem apresentar suas mensagens
+de domínio. Falhas inesperadas usam uma mensagem contextual genérica; a
+mensagem técnica não deve ser exposta na UI. O MVP não mantém logging de
+dados financeiros nem introduz um framework de logging sem requisito
+operacional.
 
 ## 16. Design System
 

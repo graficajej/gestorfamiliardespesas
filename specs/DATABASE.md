@@ -266,6 +266,13 @@ Representa a compra ou contrato parcelado como um todo.
 `frequency='MONTHLY'`. A relação garante ao menos um centavo por parcela.
 **Índices:** `(family_id)`, `(family_id,first_due_date)`.
 
+Criação de um plano, suas `expenses` e respectivas posições em
+`installments` é atômica. O total em centavos é dividido igualmente e o
+resto é distribuído, um centavo por vez, nas primeiras parcelas. Cada
+vencimento mensal é calculado a partir do dia da primeira data; em meses
+sem esse dia, usa-se o último dia do mês sem deslocar o dia-base das
+parcelas seguintes.
+
 ## 14. `installments`
 
 Representa apenas a posição da parcela dentro de um plano. Não armazena
@@ -318,6 +325,14 @@ parciais.
 
 **Índices:** `(family_id)`, `(expense_id)`, `(family_id,paid_date)`,
 `(family_id,account_id)`.
+
+O registro do pagamento, a verificação do saldo remanescente e a
+atualização de `expenses.status` devem ocorrer na mesma transação. O valor
+original de `expenses.amount_in_cents` não é alterado por pagamentos.
+Obrigações não terminais são recalculadas na abertura/retomada e antes de
+consultas relevantes: saldo zero resulta em `PAGA`; saldo positivo com
+vencimento anterior à data atual resulta em `VENCIDA`; nos demais casos,
+`A_VENCER`. `CANCELADA` é terminal e não pode receber pagamentos.
 
 ## 16. Relacionamentos
 
@@ -395,6 +410,15 @@ conflito como ocorrência já existente.
 
 `end_date` não faz parte do schema MVP; uma recorrência termina por
 cancelamento (`is_active = 0`).
+
+`start_date` é o limite inferior da regra. A geração começa no mês-base da
+recorrência e só materializa vencimentos iguais ou posteriores a essa data.
+`due_day` define o dia do mês; quando nulo, usa o dia de `start_date`.
+Meses sem esse dia usam o último dia do mês, sem alterar o dia-base dos
+meses seguintes. A interface materializa a janela dos próximos 12 meses;
+gerar novamente a mesma janela é seguro e não duplica despesas. Editar a
+regra não altera ocorrências já materializadas e cancelar impede novas
+gerações, preservando as despesas existentes.
 
 ## 21. Datas e timestamps
 

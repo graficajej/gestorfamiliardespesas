@@ -5,6 +5,16 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("AppDatabase") {
+            packageName.set("co.jmessias.gestor_familiar_despesas.db")
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/schema"))
+        }
+    }
 }
 
 kotlin {
@@ -43,6 +53,10 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
+            implementation(libs.sqlite.android.driver)
+        }
+        iosMain.dependencies {
+            implementation(libs.sqlite.native.driver)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -53,9 +67,18 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.sqldelight.coroutines)
+            implementation(libs.sqldelight.runtime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.kotlinx.datetime)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.sqlite.jvm.driver)
         }
     }
 }

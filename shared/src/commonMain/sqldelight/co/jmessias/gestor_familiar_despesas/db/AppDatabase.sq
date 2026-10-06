@@ -1,0 +1,826 @@
+﻿CREATE TABLE users (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX users_email_unique ON users(email);
+
+CREATE TABLE families (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE family_members (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('OWNER','MEMBER')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(family_id, user_id),
+    FOREIGN KEY(family_id) REFERENCES families(id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE categories (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    icon TEXT,
+    is_active INTEGER NOT NULL CHECK(is_active IN (0, 1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(family_id, name),
+    FOREIGN KEY(family_id) REFERENCES families(id)
+);
+
+CREATE TABLE accounts (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('BANK','CASH','DIGITAL_WALLET','CREDIT_CARD','OTHER')),
+    institution_name TEXT,
+    is_active INTEGER NOT NULL CHECK(is_active IN (0, 1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(family_id) REFERENCES families(id)
+);
+
+CREATE TABLE recurrences (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    description TEXT NOT NULL,
+    amount_in_cents INTEGER NOT NULL CHECK(amount_in_cents > 0),
+    currency TEXT NOT NULL CHECK(currency = 'BRL'),
+    category_id TEXT,
+    account_id TEXT,
+    frequency TEXT NOT NULL CHECK(frequency IN ('MONTHLY','QUARTERLY','YEARLY')),
+    start_date TEXT NOT NULL,
+    due_day INTEGER CHECK(due_day IS NULL OR due_day BETWEEN 1 AND 31),
+    is_active INTEGER NOT NULL CHECK(is_active IN (0, 1)),
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(family_id) REFERENCES families(id),
+    FOREIGN KEY(category_id) REFERENCES categories(id),
+    FOREIGN KEY(account_id) REFERENCES accounts(id),
+    FOREIGN KEY(created_by) REFERENCES users(id)
+);
+
+CREATE TABLE expenses (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    category_id TEXT,
+    account_id TEXT,
+    description TEXT NOT NULL,
+    amount_in_cents INTEGER NOT NULL CHECK(amount_in_cents > 0),
+    currency TEXT NOT NULL CHECK(currency = 'BRL'),
+    due_date TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('ONE_TIME','RECURRING','INSTALLMENT')),
+    status TEXT NOT NULL CHECK(status IN ('A_VENCER','VENCIDA','PAGA','CANCELADA')),
+    notes TEXT,
+    recurrence_id TEXT,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT,
+    FOREIGN KEY(family_id) REFERENCES families(id),
+    FOREIGN KEY(category_id) REFERENCES categories(id),
+    FOREIGN KEY(account_id) REFERENCES accounts(id),
+    FOREIGN KEY(recurrence_id) REFERENCES recurrences(id),
+    FOREIGN KEY(created_by) REFERENCES users(id),
+    FOREIGN KEY(updated_by) REFERENCES users(id)
+);
+
+CREATE TABLE installment_plans (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    description TEXT NOT NULL,
+    total_amount_in_cents INTEGER NOT NULL CHECK(total_amount_in_cents > 0),
+    currency TEXT NOT NULL CHECK(currency = 'BRL'),
+    installment_count INTEGER NOT NULL CHECK(installment_count > 0),
+    first_due_date TEXT NOT NULL,
+    frequency TEXT NOT NULL CHECK(frequency = 'MONTHLY'),
+    category_id TEXT,
+    account_id TEXT,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK(installment_count <= total_amount_in_cents),
+    FOREIGN KEY(family_id) REFERENCES families(id),
+    FOREIGN KEY(category_id) REFERENCES categories(id),
+    FOREIGN KEY(account_id) REFERENCES accounts(id),
+    FOREIGN KEY(created_by) REFERENCES users(id)
+);
+
+CREATE TABLE installments (
+    id TEXT NOT NULL PRIMARY KEY,
+    installment_plan_id TEXT NOT NULL,
+    expense_id TEXT NOT NULL,
+    number INTEGER NOT NULL CHECK(number > 0),
+    total_installments INTEGER NOT NULL CHECK(total_installments > 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(installment_plan_id, number),
+    UNIQUE(expense_id),
+    CHECK(number <= total_installments),
+    FOREIGN KEY(installment_plan_id) REFERENCES installment_plans(id),
+    FOREIGN KEY(expense_id) REFERENCES expenses(id)
+);
+
+CREATE TABLE payments (
+    id TEXT NOT NULL PRIMARY KEY,
+    family_id TEXT NOT NULL,
+    expense_id TEXT NOT NULL,
+    paid_amount_in_cents INTEGER NOT NULL CHECK(paid_amount_in_cents > 0),
+    currency TEXT NOT NULL CHECK(currency = 'BRL'),
+    paid_date TEXT NOT NULL,
+    payment_method TEXT NOT NULL CHECK(payment_method IN ('PIX','CASH','DEBIT_CARD','CREDIT_CARD','BANK_TRANSFER','BOLETO','OTHER')),
+    account_id TEXT,
+    interest_amount_in_cents INTEGER NOT NULL CHECK(interest_amount_in_cents >= 0),
+    fine_amount_in_cents INTEGER NOT NULL CHECK(fine_amount_in_cents >= 0),
+    discount_amount_in_cents INTEGER NOT NULL CHECK(discount_amount_in_cents >= 0),
+    notes TEXT,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(family_id) REFERENCES families(id),
+    FOREIGN KEY(expense_id) REFERENCES expenses(id),
+    FOREIGN KEY(account_id) REFERENCES accounts(id),
+    FOREIGN KEY(created_by) REFERENCES users(id)
+);
+
+CREATE INDEX idx_families_name ON families(name);
+CREATE INDEX idx_family_members_family_id ON family_members(family_id);
+CREATE INDEX idx_categories_family_active ON categories(family_id, is_active);
+CREATE INDEX idx_accounts_family_active ON accounts(family_id, is_active);
+CREATE INDEX idx_expenses_family_status_due ON expenses(family_id, status, due_date);
+CREATE INDEX idx_expenses_recurrence ON expenses(recurrence_id);
+CREATE UNIQUE INDEX idx_expenses_recurrence_due_unique ON expenses(recurrence_id, due_date)
+    WHERE recurrence_id IS NOT NULL;
+CREATE INDEX idx_installment_plans_family_first_due ON installment_plans(family_id, first_due_date);
+CREATE INDEX idx_installments_plan ON installments(installment_plan_id);
+CREATE INDEX idx_payments_expense ON payments(expense_id);
+CREATE INDEX idx_payments_family ON payments(family_id);
+CREATE INDEX idx_payments_family_date ON payments(family_id, paid_date);
+CREATE INDEX idx_payments_family_account ON payments(family_id, account_id);
+
+selectOneTimeExpensesByFamily:
+SELECT
+    id,
+    family_id,
+    category_id,
+    account_id,
+    description,
+    amount_in_cents,
+    due_date,
+    type,
+    status,
+    notes,
+    recurrence_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at,
+    deleted_at
+FROM expenses
+WHERE family_id = :family_id AND type = 'ONE_TIME' AND deleted_at IS NULL
+ORDER BY due_date ASC, created_at DESC;
+
+selectOneTimeExpense:
+SELECT
+    id,
+    family_id,
+    category_id,
+    account_id,
+    description,
+    amount_in_cents,
+    due_date,
+    type,
+    status,
+    notes,
+    recurrence_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at,
+    deleted_at
+FROM expenses
+WHERE family_id = :family_id AND id = :id AND type = 'ONE_TIME' AND deleted_at IS NULL
+LIMIT 1;
+
+selectUserBelongsToFamily:
+SELECT EXISTS(
+    SELECT 1 FROM family_members
+    WHERE family_id = :family_id AND user_id = :user_id
+);
+
+selectActiveCategoryBelongsToFamily:
+SELECT EXISTS(
+    SELECT 1 FROM categories
+    WHERE family_id = :family_id AND id = :category_id AND is_active = 1
+);
+
+selectActiveAccountBelongsToFamily:
+SELECT EXISTS(
+    SELECT 1 FROM accounts
+    WHERE family_id = :family_id AND id = :account_id AND is_active = 1
+);
+
+selectExpenseHasPayments:
+SELECT EXISTS(SELECT 1 FROM payments WHERE expense_id = :expense_id);
+
+selectExpensePaymentLedger:
+SELECT
+    expenses.amount_in_cents AS obligation_amount_in_cents,
+    expenses.due_date AS due_date,
+    expenses.status AS status,
+    CAST(COALESCE(SUM(payments.paid_amount_in_cents), 0) AS INTEGER) AS paid_amount_in_cents,
+    CAST(COALESCE(SUM(payments.interest_amount_in_cents), 0) AS INTEGER) AS interest_amount_in_cents,
+    CAST(COALESCE(SUM(payments.fine_amount_in_cents), 0) AS INTEGER) AS fine_amount_in_cents,
+    CAST(COALESCE(SUM(payments.discount_amount_in_cents), 0) AS INTEGER) AS discount_amount_in_cents
+FROM expenses
+LEFT JOIN payments ON payments.expense_id = expenses.id
+WHERE expenses.family_id = :family_id
+  AND expenses.id = :expense_id
+  AND expenses.deleted_at IS NULL
+GROUP BY expenses.id;
+
+selectPaymentsByExpense:
+SELECT
+    id,
+    family_id,
+    expense_id,
+    paid_amount_in_cents,
+    paid_date,
+    payment_method,
+    account_id,
+    interest_amount_in_cents,
+    fine_amount_in_cents,
+    discount_amount_in_cents,
+    notes,
+    created_by,
+    created_at,
+    updated_at
+FROM payments
+WHERE family_id = :family_id AND expense_id = :expense_id
+ORDER BY paid_date ASC, created_at ASC;
+
+refreshExpenseStatuses:
+UPDATE expenses
+SET status = CASE
+    WHEN amount_in_cents
+        + COALESCE((SELECT SUM(interest_amount_in_cents + fine_amount_in_cents - discount_amount_in_cents)
+                    FROM payments WHERE payments.expense_id = expenses.id), 0)
+        - COALESCE((SELECT SUM(paid_amount_in_cents)
+                    FROM payments WHERE payments.expense_id = expenses.id), 0) = 0
+        THEN 'PAGA'
+    WHEN due_date < :today THEN 'VENCIDA'
+    ELSE 'A_VENCER'
+END
+WHERE deleted_at IS NULL AND status IN ('A_VENCER', 'VENCIDA');
+
+insertOneTimeExpense:
+INSERT INTO expenses(
+    id,
+    family_id,
+    category_id,
+    account_id,
+    description,
+    amount_in_cents,
+    currency,
+    due_date,
+    type,
+    status,
+    notes,
+    recurrence_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at,
+    deleted_at
+)
+VALUES (
+    :id,
+    :family_id,
+    :category_id,
+    :account_id,
+    :description,
+    :amount_in_cents,
+    'BRL',
+    :due_date,
+    'ONE_TIME',
+    :status,
+    :notes,
+    NULL,
+    :created_by,
+    :updated_by,
+    :created_at,
+    :updated_at,
+    NULL
+);
+
+updateOneTimeExpense:
+UPDATE expenses
+SET
+    category_id = :category_id,
+    account_id = :account_id,
+    description = :description,
+    amount_in_cents = :amount_in_cents,
+    due_date = :due_date,
+    status = :status,
+    notes = :notes,
+    updated_by = :updated_by,
+    updated_at = :updated_at
+WHERE
+    family_id = :family_id
+    AND id = :id
+    AND type = 'ONE_TIME'
+    AND status IN ('A_VENCER', 'VENCIDA')
+    AND deleted_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM payments WHERE payments.expense_id = expenses.id);
+
+cancelOneTimeExpense:
+UPDATE expenses
+SET status = 'CANCELADA', updated_by = :updated_by, updated_at = :updated_at
+WHERE
+    family_id = :family_id
+    AND id = :id
+    AND type = 'ONE_TIME'
+    AND status IN ('A_VENCER', 'VENCIDA')
+    AND deleted_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM payments WHERE payments.expense_id = expenses.id);
+
+insertPayment:
+INSERT INTO payments(
+    id,
+    family_id,
+    expense_id,
+    paid_amount_in_cents,
+    currency,
+    paid_date,
+    payment_method,
+    account_id,
+    interest_amount_in_cents,
+    fine_amount_in_cents,
+    discount_amount_in_cents,
+    notes,
+    created_by,
+    created_at,
+    updated_at
+)
+VALUES (
+    :id,
+    :family_id,
+    :expense_id,
+    :paid_amount_in_cents,
+    'BRL',
+    :paid_date,
+    :payment_method,
+    :account_id,
+    :interest_amount_in_cents,
+    :fine_amount_in_cents,
+    :discount_amount_in_cents,
+    :notes,
+    :created_by,
+    :created_at,
+    :updated_at
+);
+
+insertInstallmentPlan:
+INSERT INTO installment_plans(
+    id,
+    family_id,
+    description,
+    total_amount_in_cents,
+    currency,
+    installment_count,
+    first_due_date,
+    frequency,
+    category_id,
+    account_id,
+    created_by,
+    created_at,
+    updated_at
+)
+VALUES (
+    :id,
+    :family_id,
+    :description,
+    :total_amount_in_cents,
+    'BRL',
+    :installment_count,
+    :first_due_date,
+    'MONTHLY',
+    :category_id,
+    :account_id,
+    :created_by,
+    :created_at,
+    :updated_at
+);
+
+insertInstallmentExpense:
+INSERT INTO expenses(
+    id,
+    family_id,
+    category_id,
+    account_id,
+    description,
+    amount_in_cents,
+    currency,
+    due_date,
+    type,
+    status,
+    notes,
+    recurrence_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at,
+    deleted_at
+)
+VALUES (
+    :id,
+    :family_id,
+    :category_id,
+    :account_id,
+    :description,
+    :amount_in_cents,
+    'BRL',
+    :due_date,
+    'INSTALLMENT',
+    :status,
+    :notes,
+    NULL,
+    :created_by,
+    :updated_by,
+    :created_at,
+    :updated_at,
+    NULL
+);
+
+insertInstallment:
+INSERT INTO installments(
+    id,
+    installment_plan_id,
+    expense_id,
+    number,
+    total_installments,
+    created_at,
+    updated_at
+)
+VALUES (
+    :id,
+    :installment_plan_id,
+    :expense_id,
+    :number,
+    :total_installments,
+    :created_at,
+    :updated_at
+);
+
+insertRecurrence:
+INSERT INTO recurrences(
+    id,
+    family_id,
+    description,
+    amount_in_cents,
+    currency,
+    category_id,
+    account_id,
+    frequency,
+    start_date,
+    due_day,
+    is_active,
+    created_by,
+    created_at,
+    updated_at
+)
+VALUES (
+    :id,
+    :family_id,
+    :description,
+    :amount_in_cents,
+    'BRL',
+    :category_id,
+    :account_id,
+    :frequency,
+    :start_date,
+    :due_day,
+    1,
+    :created_by,
+    :created_at,
+    :updated_at
+);
+
+updateActiveRecurrence:
+UPDATE recurrences
+SET description = :description,
+    amount_in_cents = :amount_in_cents,
+    category_id = :category_id,
+    account_id = :account_id,
+    frequency = :frequency,
+    start_date = :start_date,
+    due_day = :due_day,
+    updated_at = :updated_at
+WHERE family_id = :family_id AND id = :id AND is_active = 1;
+
+cancelActiveRecurrence:
+UPDATE recurrences
+SET is_active = 0, updated_at = :updated_at
+WHERE family_id = :family_id AND id = :id AND is_active = 1;
+
+selectRecurrencesByFamily:
+SELECT
+    id,
+    family_id,
+    description,
+    amount_in_cents,
+    category_id,
+    account_id,
+    frequency,
+    start_date,
+    due_day,
+    is_active,
+    created_by,
+    created_at,
+    updated_at
+FROM recurrences
+WHERE family_id = :family_id
+ORDER BY is_active DESC, created_at DESC;
+
+selectActiveRecurrencesByFamily:
+SELECT
+    id,
+    family_id,
+    description,
+    amount_in_cents,
+    category_id,
+    account_id,
+    frequency,
+    start_date,
+    due_day,
+    is_active,
+    created_by,
+    created_at,
+    updated_at
+FROM recurrences
+WHERE family_id = :family_id AND is_active = 1
+ORDER BY created_at;
+
+selectActiveRecurrence:
+SELECT
+    id,
+    family_id,
+    description,
+    amount_in_cents,
+    category_id,
+    account_id,
+    frequency,
+    start_date,
+    due_day,
+    is_active,
+    created_by,
+    created_at,
+    updated_at
+FROM recurrences
+WHERE family_id = :family_id AND id = :id AND is_active = 1
+LIMIT 1;
+
+insertGeneratedRecurrenceExpense:
+INSERT OR IGNORE INTO expenses(
+    id,
+    family_id,
+    category_id,
+    account_id,
+    description,
+    amount_in_cents,
+    currency,
+    due_date,
+    type,
+    status,
+    notes,
+    recurrence_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at,
+    deleted_at
+)
+SELECT
+    :id,
+    recurrences.family_id,
+    recurrences.category_id,
+    recurrences.account_id,
+    recurrences.description,
+    recurrences.amount_in_cents,
+    'BRL',
+    :due_date,
+    'RECURRING',
+    :status,
+    NULL,
+    recurrences.id,
+    recurrences.created_by,
+    recurrences.created_by,
+    :created_at,
+    :updated_at,
+    NULL
+FROM recurrences
+WHERE recurrences.id = :recurrence_id
+  AND recurrences.family_id = :family_id
+  AND recurrences.is_active = 1;
+
+selectRecurrenceOccurrenceExists:
+SELECT EXISTS(
+    SELECT 1 FROM expenses
+    WHERE recurrence_id = :recurrence_id AND due_date = :due_date
+      AND type = 'RECURRING' AND deleted_at IS NULL
+);
+
+selectRecurrenceExpensesByFamily:
+SELECT
+    id,
+    family_id,
+    category_id,
+    account_id,
+    description,
+    amount_in_cents,
+    due_date,
+    type,
+    status,
+    notes,
+    recurrence_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at,
+    deleted_at
+FROM expenses
+WHERE family_id = :family_id AND type = 'RECURRING' AND deleted_at IS NULL
+ORDER BY due_date, created_at;
+
+selectInstallmentPlansByFamily:
+SELECT
+    plans.id AS plan_id,
+    plans.family_id AS plan_family_id,
+    plans.description AS plan_description,
+    plans.total_amount_in_cents AS plan_total_amount_in_cents,
+    plans.installment_count AS plan_installment_count,
+    plans.first_due_date AS plan_first_due_date,
+    plans.category_id AS plan_category_id,
+    plans.account_id AS plan_account_id,
+    plans.created_by AS plan_created_by,
+    plans.created_at AS plan_created_at,
+    plans.updated_at AS plan_updated_at,
+    positions.id AS installment_id,
+    positions.number AS installment_number,
+    positions.total_installments AS installment_total,
+    positions.created_at AS installment_created_at,
+    positions.updated_at AS installment_updated_at,
+    expenses.id AS expense_id,
+    expenses.family_id AS expense_family_id,
+    expenses.category_id AS expense_category_id,
+    expenses.account_id AS expense_account_id,
+    expenses.description AS expense_description,
+    expenses.amount_in_cents AS expense_amount_in_cents,
+    expenses.due_date AS expense_due_date,
+    expenses.type AS expense_type,
+    expenses.status AS expense_status,
+    expenses.notes AS expense_notes,
+    expenses.recurrence_id AS expense_recurrence_id,
+    expenses.created_by AS expense_created_by,
+    expenses.updated_by AS expense_updated_by,
+    expenses.created_at AS expense_created_at,
+    expenses.updated_at AS expense_updated_at,
+    expenses.deleted_at AS expense_deleted_at
+FROM installment_plans AS plans
+JOIN installments AS positions ON positions.installment_plan_id = plans.id
+JOIN expenses ON expenses.id = positions.expense_id
+WHERE plans.family_id = :family_id
+  AND expenses.family_id = plans.family_id
+  AND expenses.type = 'INSTALLMENT'
+  AND expenses.deleted_at IS NULL
+ORDER BY plans.created_at DESC, plans.id, positions.number;
+
+countInstallmentPlansByFamily:
+SELECT COUNT(*) FROM installment_plans WHERE family_id = :family_id;
+
+selectFamilyExists:
+SELECT EXISTS(SELECT 1 FROM families WHERE id = :family_id);
+
+selectUserExists:
+SELECT EXISTS(SELECT 1 FROM users WHERE id = :user_id);
+
+selectOwnerFamily:
+SELECT
+    users.id AS user_id,
+    families.id AS family_id,
+    users.name AS owner_name,
+    families.name AS family_name
+FROM family_members
+INNER JOIN users ON users.id = family_members.user_id
+INNER JOIN families ON families.id = family_members.family_id
+WHERE family_members.role = 'OWNER'
+ORDER BY family_members.created_at ASC
+LIMIT 1;
+
+selectCategoriesByFamily:
+SELECT id, family_id, name, icon, is_active, created_at, updated_at
+FROM categories
+WHERE family_id = :family_id
+ORDER BY name ASC;
+
+selectCategoryByName:
+SELECT id, family_id, name, icon, is_active, created_at, updated_at
+FROM categories
+WHERE family_id = :family_id AND name = :name
+LIMIT 1;
+
+insertCategory:
+INSERT OR IGNORE INTO categories(
+    id,
+    family_id,
+    name,
+    icon,
+    is_active,
+    created_at,
+    updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deactivateCategory:
+UPDATE categories
+SET is_active = 0, updated_at = :updated_at
+WHERE family_id = :family_id AND id = :id AND is_active = 1;
+
+selectCategoryInactive:
+SELECT EXISTS(
+    SELECT 1 FROM categories
+    WHERE family_id = :family_id AND id = :id AND is_active = 0
+);
+
+selectAccountsByFamily:
+SELECT id, family_id, name, type, institution_name, is_active, created_at, updated_at
+FROM accounts
+WHERE family_id = :family_id
+ORDER BY name ASC;
+
+insertAccount:
+INSERT INTO accounts(
+    id,
+    family_id,
+    name,
+    type,
+    institution_name,
+    is_active,
+    created_at,
+    updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deactivateAccount:
+UPDATE accounts
+SET is_active = 0, updated_at = :updated_at
+WHERE family_id = :family_id AND id = :id AND is_active = 1;
+
+selectAccountInactive:
+SELECT EXISTS(
+    SELECT 1 FROM accounts
+    WHERE family_id = :family_id AND id = :id AND is_active = 0
+);
+
+insertUser:
+INSERT INTO users(
+    id,
+    name,
+    email,
+    created_at,
+    updated_at
+)
+VALUES (?, ?, ?, ?, ?);
+
+insertFamily:
+INSERT INTO families(
+    id,
+    name,
+    created_at,
+    updated_at
+)
+VALUES (?, ?, ?, ?);
+
+insertFamilyMember:
+INSERT INTO family_members(
+    id,
+    family_id,
+    user_id,
+    role,
+    created_at,
+    updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?);

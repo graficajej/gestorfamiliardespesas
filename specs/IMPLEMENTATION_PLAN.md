@@ -94,6 +94,15 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
   e Gradle.
 - Aceite: decisão e justificativa registradas antes de adicionar a
   dependência.
+- Decisão: SQLDelight 2.1.0, com runtime e queries no `commonMain`,
+  `android-driver` no `androidMain` e `native-driver` no `iosMain`.
+  A definição inicial fica em `.sq`; alterações futuras serão versionadas
+  em arquivos `.sqm` e verificadas pelo Gradle plugin.
+- Justificativa: mantém SQL e mapeamento tipados no código compartilhado,
+  enquanto usa os drivers SQLite nativos de cada plataforma; o driver
+  JDBC é usado somente para testes Android-host no Windows.
+- A compilação/testes Android-host passaram no Windows. A validação do
+  alvo iOS permanece no gate macOS da tarefa 9.3.
 
 **0.3 Definir matriz de build**
 - Registrar requisitos de JDK, Android SDK, Gradle, macOS e Xcode.
@@ -174,11 +183,19 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 - Solicitar nome da pessoa e da família e apresentar loading, erro e
   sucesso.
 - Aceite: UI usa ViewModel/UseCase e funciona no Android/iOS.
+- Implementada em UI compartilhada; a tela coleta os nomes, grava o
+  OWNER/família com transação e restaura a família salva na próxima
+  abertura. Build e teste Android-host passaram no Windows; validação
+  visual/compilação iOS ainda aguarda macOS/Xcode.
 
 **4.3 Categorias e contas**
 - Implementar criar, listar e desativar com validação da família.
 - Aceite: categoria única por família; testes de domínio/repository e
   estados de UI cobertos.
+- Implementados os fluxos compartilhados de criação, listagem e
+  desativação, com validação da família e preservação de registros
+  inativos. Testes de domínio, integração SQLite e ViewModel passaram no
+  Android-host; validação visual/compilação iOS ainda aguarda macOS/Xcode.
 
 ### Fase 5: Despesas avulsas
 
@@ -186,11 +203,19 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 - Implementar criar, listar/observar, editar e cancelar despesa avulsa.
 - Aceite: valor positivo, UUID, autoria, data civil e referências da
   família validados; histórico preservado.
+- Implementados os casos de uso e o repository SQLDelight, com observação
+  reativa, validação de família/referências e bloqueio de edição ou
+  cancelamento após pagamentos. Testes de domínio e integração SQLite
+  passaram no Android-host.
 
 **5.2 Fluxo de apresentação**
 - Implementar ViewModel, UiState e telas de cadastro/lista.
 - Aceite: estados loading/empty/error/success; regras financeiras fora
   dos Composables.
+- Implementados cadastro, listagem, edição e cancelamento no fluxo
+  compartilhado, com validação de entrada no ViewModel e atualização
+  reativa da lista. Testes do ViewModel/parser e build Android passaram;
+  validação de iOS continua pendente de macOS/Xcode.
 
 ### Fase 6: Pagamentos
 
@@ -198,17 +223,29 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 - Persistir pagamento e atualizar o status de forma atômica.
 - Aceite: valor original da obrigação preservado; excedente e pagamento
   em despesa cancelada rejeitados; cancelamento após pagamento bloqueado.
+- Implementados entidade/contratos/caso de uso e repository SQLDelight.
+  Registro, validação de saldo, pertença à família e atualização do status
+  ocorrem na mesma transação; valores excedentes e despesas canceladas são
+  rejeitados. Testes de domínio e integração SQLite passaram.
 
 **6.2 Atualizar status por vencimento**
 - Recalcular obrigações não terminais ao abrir/retomar e antes das
   consultas relevantes.
 - Aceite: testes com relógio controlado para antes, no dia e após o
   vencimento, incluindo estados pago/cancelado.
+- Status recalculado no início/retorno ao app, ao consultar despesas/saldo
+  e antes/depois da gravação. Testes com datas fixas cobrem antes, no dia
+  e após o vencimento, além dos estados pago e cancelado.
 
 **6.3 Interface de pagamento**
 - Exibir saldo e permitir registrar pagamento pelo fluxo de apresentação.
 - Aceite: feedback loading/erro/sucesso; formatação monetária somente na
   Presentation.
+- Implementado diálogo compartilhado para valor, data, forma de pagamento,
+  conta e observações, com saldo, histórico e feedback de carregamento,
+  erro e sucesso. Teste de fluxo ViewModel cobriu pagamentos parcial e
+  integral; build Android passou. Validação de iOS segue pendente de
+  macOS/Xcode.
 
 ### Fase 7: Parcelamentos
 
@@ -216,10 +253,20 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 - Criar plano, Expenses e Installments em uma transação.
 - Aceite: uma Expense por posição; Installment referencia Expense; soma
   das obrigações igual ao total do plano.
+- Implementados caso de uso, repository SQLDelight e gravação transacional
+  de plano, despesas do tipo `INSTALLMENT` e posições. O total é dividido
+  em centavos, distribuindo o resto nas primeiras parcelas; datas mensais
+  são calculadas a partir do dia original e ajustadas ao último dia do mês
+  quando necessário. Testes de domínio e rollback SQLite passaram.
 
 **7.2 Consultar plano e parcelas**
 - Exibir posição e dados financeiros derivados das Expenses associadas.
 - Aceite: valor, vencimento e status vêm exclusivamente de Expense.
+- Implementada consulta reativa por família e tela compartilhada que exibe
+  descrição/total do plano e número, valor, vencimento e status de cada
+  despesa associada. Valores, vencimentos e status das parcelas são lidos
+  da `Expense`; teste ViewModel e build Android passaram. Validação iOS
+  permanece pendente de macOS/Xcode.
 
 ### Fase 8: Recorrências
 
@@ -227,11 +274,20 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 - Implementar regra ativa sem data final; editar não altera despesas
   existentes.
 - Aceite: cancelamento impede novas ocorrências e preserva o histórico.
+- Concluído: cadastro, edição, cancelamento, validação de família e
+  preservação das ocorrências materializadas; fluxo integrado verificado
+  por teste Android-host.
 
 **8.2 Gerar janela futura**
 - Gerar Expenses por janela e chave recurrence/date única.
 - Aceite: idempotência no repository e regras de calendário cobertas por
   testes.
+- Concluído: geração idempotente por índice único `(recurrence_id,
+  due_date)`, com janela automática dos próximos 12 meses. Testes cobrem
+  mensal/trimestral/anual, fim do mês, ano bissexto, limites da janela,
+  data inicial e repetição; `:shared:testAndroidHostTest` e
+  `:androidApp:assembleDebug` passaram. A validação iOS permanece pendente
+  de macOS/Xcode.
 
 ### Fase 9: Integração e validação do MVP
 
@@ -239,16 +295,36 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 - Adicionar apenas rotas e componentes necessários aos fluxos incluídos.
 - Aceite: rotas centralizadas; estados vazios, erro e loading nas telas
   relevantes.
+- Concluído: seções são centralizadas em `ManagementSection`, com títulos
+  associados à rota; os painéis apresentam estados de loading, vazio, erro
+  e salvamento nos fluxos aplicáveis.
 
 **9.2 Revisar arquitetura e preservação de dados**
 - Revisar dependências, integridade de família, soft delete, logs e erros.
 - Aceite: nenhuma regra financeira na UI; nenhum histórico removido
   silenciosamente; documentação consistente.
+- Concluído: repositórios SQLDelight são conectados em
+  `ManagementViewModelFactory`; o ViewModel depende de contratos do
+  domínio. Erros técnicos inesperados são convertidos em mensagens
+  contextuais, e validações mantêm mensagens de domínio. Os testes de
+  repositório cobrem integridade de família, transações e preservação de
+  histórico. Não há logger no MVP; dados financeiros não são registrados
+  em logs.
 
 **9.3 Validar Android e iOS**
 - Executar testes shared/Android; compilar/testar iOS em macOS; percorrer
   configuração, cadastros, despesas, pagamentos, planos e recorrências.
 - Aceite: gates passam e limitações conhecidas ficam registradas.
+- Android validado: `:shared:testAndroidHostTest`,
+  `:androidApp:lintDebug` e `:androidApp:assembleDebug` passaram. O lint
+  reportou 0 erros e 16 avisos (atualizações de dependências sugeridas,
+  qualificadores de recursos redundantes e ícone monocromático ausente).
+  Os testes Android-host executaram 53 testes, sem falhas. Emulador API 35:
+  instalação e inicialização verificadas; percurso manual cobriu
+  configuração, categorias, contas, despesa, pagamento integral,
+  parcelamento, recorrência e persistência após reiniciar o app. Não foram
+  encontrados crashes do aplicativo. iOS permanece pendente de macOS/Xcode;
+  a fase 9 como um todo aguarda esse gate.
 
 ## 6. Definition of Done por tarefa
 
