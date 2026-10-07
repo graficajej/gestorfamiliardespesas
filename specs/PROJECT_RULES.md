@@ -33,8 +33,11 @@ O produto deverá evoluir futuramente para um gestor financeiro familiar
 completo.
 
 O MVP inclui configuração local da família, despesas avulsas,
-pagamentos, categorias, contas, parcelamentos e recorrências. Dashboard,
-projeção, histórico dedicado, backend e sincronização ficam fora do MVP.
+pagamentos, categorias, parcelamentos e recorrências. O gerenciamento e a
+seleção de contas ficam fora da primeira versão; entidades e referências
+de contas permanecem no armazenamento para compatibilidade e evolução.
+Dashboard, projeção, histórico dedicado, backend e sincronização ficam
+fora do MVP.
 
 ## 3. Stack-base
 

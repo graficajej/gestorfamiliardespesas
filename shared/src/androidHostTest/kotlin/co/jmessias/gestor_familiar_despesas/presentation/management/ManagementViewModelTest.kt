@@ -4,7 +4,6 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import co.jmessias.gestor_familiar_despesas.composition.ManagementViewModelFactory
 import co.jmessias.gestor_familiar_despesas.data.repository.SqlDelightRecurrenceRepository
 import co.jmessias.gestor_familiar_despesas.db.AppDatabase
-import co.jmessias.gestor_familiar_despesas.domain.account.AccountType
 import co.jmessias.gestor_familiar_despesas.domain.model.SystemEntityMetadataProvider
 import co.jmessias.gestor_familiar_despesas.domain.obligation.ExpenseStatus
 import co.jmessias.gestor_familiar_despesas.domain.payment.PaymentMethod
@@ -311,7 +310,7 @@ class ManagementViewModelTest {
     }
 
     @Test
-    fun `setup and category account management flow persists and refreshes state`() = runTest {
+    fun `setup and category management flow persists and refreshes state`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
@@ -346,14 +345,15 @@ class ManagementViewModelTest {
                 ).categories.single().isActive
             )
 
-            viewModel.selectSection(ManagementSection.ACCOUNTS)
-            awaitState(viewModel) { it is ManagementUiState.Workspace && !it.isLoading }
-            viewModel.createAccount("Carteira", AccountType.CASH, "")
-            val accountWorkspace = assertIs<ManagementUiState.Workspace>(
-                awaitState(viewModel) { it is ManagementUiState.Workspace && it.accounts.isNotEmpty() }
+            assertEquals(
+                listOf(
+                    ManagementSection.CATEGORIES,
+                    ManagementSection.EXPENSES,
+                    ManagementSection.INSTALLMENTS,
+                    ManagementSection.RECURRENCES,
+                ),
+                ManagementSection.entries,
             )
-            assertEquals(AccountType.CASH, accountWorkspace.accounts.single().type)
-            assertTrue(accountWorkspace.errorMessage == null)
         } finally {
             driver.close()
             Dispatchers.resetMain()

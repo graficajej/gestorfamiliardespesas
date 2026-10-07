@@ -2,12 +2,6 @@ package co.jmessias.gestor_familiar_despesas.presentation.management
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import co.jmessias.gestor_familiar_despesas.domain.account.Account
-import co.jmessias.gestor_familiar_despesas.domain.account.AccountType
-import co.jmessias.gestor_familiar_despesas.domain.account.AccountRepository
-import co.jmessias.gestor_familiar_despesas.domain.account.CreateAccountUseCase
-import co.jmessias.gestor_familiar_despesas.domain.account.DeactivateAccountUseCase
-import co.jmessias.gestor_familiar_despesas.domain.account.ListAccountsUseCase
 import co.jmessias.gestor_familiar_despesas.domain.bootstrap.FamilyBootstrapRepository
 import co.jmessias.gestor_familiar_despesas.domain.bootstrap.CreateOwnerFamilyUseCase
 import co.jmessias.gestor_familiar_despesas.domain.bootstrap.LoadOwnerFamilyUseCase
@@ -62,9 +56,8 @@ import kotlinx.datetime.LocalDate
 
 enum class ManagementSection(val title: String) {
     CATEGORIES("Categorias"),
-    ACCOUNTS("Contas"),
     EXPENSES("Despesas"),
-    INSTALLMENTS("Parcelamentos"),
+    INSTALLMENTS("Parcelas"),
     RECURRENCES("Recorrências"),
 }
 
@@ -130,7 +123,6 @@ sealed interface ManagementUiState {
         val family: OwnerFamilySetup,
         val section: ManagementSection = ManagementSection.CATEGORIES,
         val categories: List<Category> = emptyList(),
-        val accounts: List<Account> = emptyList(),
         val expenses: List<Expense> = emptyList(),
         val expenseDraft: OneTimeExpenseDraft = OneTimeExpenseDraft(),
         val installmentPlans: List<InstallmentPlanWithInstallments> = emptyList(),
@@ -153,7 +145,6 @@ sealed interface ManagementUiState {
 class ManagementViewModel(
     bootstrapRepository: FamilyBootstrapRepository,
     categoryRepository: CategoryRepository,
-    accountRepository: AccountRepository,
     expenseRepository: ExpenseRepository,
     paymentRepository: PaymentRepository,
     installmentRepository: InstallmentRepository,
@@ -165,9 +156,6 @@ class ManagementViewModel(
     private val listCategories = ListCategoriesUseCase(categoryRepository)
     private val createCategory = CreateCategoryUseCase(categoryRepository, metadataProvider)
     private val deactivateCategory = DeactivateCategoryUseCase(categoryRepository, metadataProvider)
-    private val listAccounts = ListAccountsUseCase(accountRepository)
-    private val createAccount = CreateAccountUseCase(accountRepository, metadataProvider)
-    private val deactivateAccount = DeactivateAccountUseCase(accountRepository, metadataProvider)
     private val observeExpenses = ObserveOneTimeExpensesUseCase(expenseRepository)
     private val createExpense = CreateOneTimeExpenseUseCase(expenseRepository, metadataProvider)
     private val updateExpense = UpdateOneTimeExpenseUseCase(expenseRepository, metadataProvider)
@@ -302,50 +290,6 @@ class ManagementViewModel(
             } catch (error: Exception) {
                 updateWorkspace {
                     it.copy(errorMessage = error.toPresentationMessage("Não foi possível desativar a categoria."))
-                }
-            }
-        }
-    }
-
-    fun createAccount(name: String, type: AccountType, institutionName: String) {
-        val current = mutableState.value as? ManagementUiState.Workspace ?: return
-        if (current.isSaving) return
-        mutableState.value = current.copy(isSaving = true, errorMessage = null)
-        viewModelScope.launch {
-            try {
-                val result = createAccount.execute(current.family.familyId, name, type, institutionName)
-                result.fold(
-                    onSuccess = { loadAccounts() },
-                    onFailure = {
-                        error -> updateWorkspace {
-                            it.copy(
-                                isSaving = false,
-                                errorMessage = error.toPresentationMessage("Não foi possível salvar a conta."),
-                            )
-                        }
-                    },
-                )
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (error: Exception) {
-                updateWorkspace {
-                    it.copy(isSaving = false, errorMessage = error.toPresentationMessage("Não foi possível salvar a conta."))
-                }
-            }
-        }
-    }
-
-    fun deactivateAccount(accountId: String) {
-        val current = mutableState.value as? ManagementUiState.Workspace ?: return
-        viewModelScope.launch {
-            try {
-                deactivateAccount.execute(current.family.familyId, accountId).getOrThrow()
-                loadAccounts()
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (error: Exception) {
-                updateWorkspace {
-                    it.copy(errorMessage = error.toPresentationMessage("Não foi possível desativar a conta."))
                 }
             }
         }
@@ -769,7 +713,6 @@ class ManagementViewModel(
     private fun refreshSection() {
         when ((mutableState.value as? ManagementUiState.Workspace)?.section) {
             ManagementSection.CATEGORIES -> loadCategories()
-            ManagementSection.ACCOUNTS -> loadAccounts()
             ManagementSection.EXPENSES -> observeExpenses()
             ManagementSection.INSTALLMENTS -> observeInstallmentPlans()
             ManagementSection.RECURRENCES -> observeRecurrenceRules()
@@ -783,13 +726,11 @@ class ManagementViewModel(
         recurrencesObservationJob = viewModelScope.launch {
             try {
                 val categories = listCategories.execute(current.family.familyId).getOrThrow()
-                val accounts = listAccounts.execute(current.family.familyId).getOrThrow()
                 generateNextTwelveMonths(current.family.familyId)
                 observeRecurrences.execute(current.family.familyId).collect { recurrences ->
                     updateWorkspace {
                         it.copy(
                             categories = categories,
-                            accounts = accounts,
                             recurrences = recurrences,
                             isLoading = false,
                             isSaving = false,
@@ -878,26 +819,6 @@ class ManagementViewModel(
                         isLoading = false,
                         isSaving = false,
                         errorMessage = error.toPresentationMessage("Não foi possível carregar categorias."),
-                    )
-                }
-            }
-        }
-    }
-
-    private fun loadAccounts() {
-        val current = mutableState.value as? ManagementUiState.Workspace ?: return
-        viewModelScope.launch {
-            try {
-                val accounts = listAccounts.execute(current.family.familyId).getOrThrow()
-                updateWorkspace { it.copy(accounts = accounts, isLoading = false, isSaving = false, errorMessage = null) }
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (error: Exception) {
-                updateWorkspace {
-                    it.copy(
-                        isLoading = false,
-                        isSaving = false,
-                        errorMessage = error.toPresentationMessage("Não foi possível carregar contas."),
                     )
                 }
             }

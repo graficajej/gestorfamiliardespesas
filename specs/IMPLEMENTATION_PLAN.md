@@ -15,7 +15,7 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
 ### Incluído
 
 - Configuração inicial local do usuário OWNER e da família.
-- Categorias e contas.
+- Categorias; o gerenciamento de contas fica fora da primeira versão.
 - Despesas avulsas e pagamentos integrais ou parciais.
 - Parcelamentos com `InstallmentPlan → Installment → Expense → Payment`.
 - Recorrências sem data final, encerradas por cancelamento.
@@ -196,6 +196,9 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
   desativação, com validação da família e preservação de registros
   inativos. Testes de domínio, integração SQLite e ViewModel passaram no
   Android-host; validação visual/compilação iOS ainda aguarda macOS/Xcode.
+  Decisão para a primeira versão: o gerenciamento e a seleção de contas
+  ficam ocultos na UI; a entidade, persistência e referências opcionais
+  permanecem para preservar compatibilidade e dados existentes.
 
 ### Fase 5: Despesas avulsas
 
@@ -321,10 +324,12 @@ verificáveis. Ele complementa [PROJECT_RULES.md](PROJECT_RULES.md),
   qualificadores de recursos redundantes e ícone monocromático ausente).
   Os testes Android-host executaram 53 testes, sem falhas. Emulador API 35:
   instalação e inicialização verificadas; percurso manual cobriu
-  configuração, categorias, contas, despesa, pagamento integral,
-  parcelamento, recorrência e persistência após reiniciar o app. Não foram
-  encontrados crashes do aplicativo. iOS permanece pendente de macOS/Xcode;
-  a fase 9 como um todo aguarda esse gate.
+  configuração, categorias, despesa, pagamento integral, parcelamento,
+  recorrência e persistência após reiniciar o app. A navegação de quatro
+  abas sem gerenciamento/seleção de contas foi validada após o ajuste da
+  primeira versão. Não foram encontrados crashes do aplicativo. iOS
+  permanece pendente de macOS/Xcode; a fase 9 como um todo aguarda esse
+  gate.
 
 ## 6. Definition of Done por tarefa
 

@@ -39,13 +39,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import co.jmessias.gestor_familiar_despesas.presentation.management.ManagementViewModel
-import co.jmessias.gestor_familiar_despesas.domain.account.AccountType
 import co.jmessias.gestor_familiar_despesas.domain.expense.Expense
 import co.jmessias.gestor_familiar_despesas.domain.payment.PaymentMethod
 import co.jmessias.gestor_familiar_despesas.domain.obligation.ExpenseStatus
@@ -84,8 +84,6 @@ fun App(createViewModel: () -> ManagementViewModel) {
                     onSectionSelected = viewModel::selectSection,
                     onCreateCategory = viewModel::createCategory,
                     onDeactivateCategory = viewModel::deactivateCategory,
-                    onCreateAccount = viewModel::createAccount,
-                    onDeactivateAccount = viewModel::deactivateAccount,
                     onExpenseDraftChanged = viewModel::updateExpenseDraft,
                     onSaveExpense = viewModel::saveOneTimeExpense,
                     onEditExpense = viewModel::editExpense,
@@ -184,8 +182,6 @@ private fun WorkspaceScreen(
     onSectionSelected: (ManagementSection) -> Unit,
     onCreateCategory: (String, String) -> Unit,
     onDeactivateCategory: (String) -> Unit,
-    onCreateAccount: (String, AccountType, String) -> Unit,
-    onDeactivateAccount: (String) -> Unit,
     onExpenseDraftChanged: (OneTimeExpenseDraft) -> Unit,
     onSaveExpense: () -> Unit,
     onEditExpense: (Expense) -> Unit,
@@ -216,7 +212,17 @@ private fun WorkspaceScreen(
                     Tab(
                         selected = state.section == section,
                         onClick = { onSectionSelected(section) },
-                        text = { Text(section.title) },
+                        text = {
+                            Text(
+                                text = section.title,
+                                maxLines = 1,
+                                softWrap = false,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.sp,
+                                ),
+                            )
+                        },
                     )
                 }
             }
@@ -238,7 +244,6 @@ private fun WorkspaceScreen(
             } else {
                 when (state.section) {
                     ManagementSection.CATEGORIES -> CategoryPanel(state, onCreateCategory, onDeactivateCategory)
-                    ManagementSection.ACCOUNTS -> AccountPanel(state, onCreateAccount, onDeactivateAccount)
                     ManagementSection.EXPENSES -> ExpensePanel(
                         state = state,
                         onDraftChanged = onExpenseDraftChanged,
@@ -289,10 +294,8 @@ private fun RecurrencePanel(
     val draft = state.recurrenceDraft
     var frequencyMenuExpanded by remember { mutableStateOf(false) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
-    var accountMenuExpanded by remember { mutableStateOf(false) }
     var recurrenceToCancel by remember { mutableStateOf<String?>(null) }
     val activeCategories = state.categories.filter { it.isActive }
-    val activeAccounts = state.accounts.filter { it.isActive }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -369,30 +372,6 @@ private fun RecurrencePanel(
                     onClick = {
                         onDraftChanged(draft.copy(categoryId = category.id))
                         categoryMenuExpanded = false
-                    },
-                )
-            }
-        }
-        OutlinedButton(
-            onClick = { accountMenuExpanded = true },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Conta: ${activeAccounts.firstOrNull { it.id == draft.accountId }?.name ?: "Nenhuma"}")
-        }
-        DropdownMenu(expanded = accountMenuExpanded, onDismissRequest = { accountMenuExpanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Nenhuma") },
-                onClick = {
-                    onDraftChanged(draft.copy(accountId = null))
-                    accountMenuExpanded = false
-                },
-            )
-            activeAccounts.forEach { account ->
-                DropdownMenuItem(
-                    text = { Text(account.name) },
-                    onClick = {
-                        onDraftChanged(draft.copy(accountId = account.id))
-                        accountMenuExpanded = false
                     },
                 )
             }
@@ -576,20 +555,18 @@ private fun InstallmentPlanPanel(
 
 @Composable
 private fun ExpensePanel(
-            state: ManagementUiState.Workspace,
-            onDraftChanged: (OneTimeExpenseDraft) -> Unit,
-            onSave: () -> Unit,
-            onEdit: (Expense) -> Unit,
-            onCancel: (String) -> Unit,
-            onClearDraft: () -> Unit,
-            onPay: (Expense) -> Unit,
-        ) {
+    state: ManagementUiState.Workspace,
+    onDraftChanged: (OneTimeExpenseDraft) -> Unit,
+    onSave: () -> Unit,
+    onEdit: (Expense) -> Unit,
+    onCancel: (String) -> Unit,
+    onClearDraft: () -> Unit,
+    onPay: (Expense) -> Unit,
+) {
             val draft = state.expenseDraft
             var categoryMenuExpanded by remember { mutableStateOf(false) }
-            var accountMenuExpanded by remember { mutableStateOf(false) }
             var expenseToCancel by remember { mutableStateOf<Expense?>(null) }
             val activeCategories = state.categories.filter { it.isActive }
-            val activeAccounts = state.accounts.filter { it.isActive }
 
             Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
                 Spacer(Modifier.height(12.dp))
@@ -649,34 +626,6 @@ private fun ExpensePanel(
                             onClick = {
                                 onDraftChanged(draft.copy(categoryId = category.id))
                                 categoryMenuExpanded = false
-                            },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(
-                    onClick = { accountMenuExpanded = true },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Conta: ${activeAccounts.firstOrNull { it.id == draft.accountId }?.name ?: "Nenhuma"}")
-                }
-                DropdownMenu(
-                    expanded = accountMenuExpanded,
-                    onDismissRequest = { accountMenuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Nenhuma") },
-                        onClick = {
-                            onDraftChanged(draft.copy(accountId = null))
-                            accountMenuExpanded = false
-                        },
-                    )
-                    activeAccounts.forEach { account ->
-                        DropdownMenuItem(
-                            text = { Text(account.name) },
-                            onClick = {
-                                onDraftChanged(draft.copy(accountId = account.id))
-                                accountMenuExpanded = false
                             },
                         )
                     }
@@ -773,8 +722,6 @@ private fun PaymentDialog(
     val expense = state.paymentExpense ?: return
     val draft = state.paymentDraft
     var methodMenuExpanded by remember { mutableStateOf(false) }
-    var accountMenuExpanded by remember { mutableStateOf(false) }
-    val activeAccounts = state.accounts.filter { it.isActive }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -825,33 +772,6 @@ private fun PaymentDialog(
                                 onClick = {
                                     onDraftChanged(draft.copy(method = method))
                                     methodMenuExpanded = false
-                                },
-                            )
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = { accountMenuExpanded = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Conta: ${activeAccounts.firstOrNull { it.id == draft.accountId }?.name ?: "Nenhuma"}")
-                    }
-                    DropdownMenu(
-                        expanded = accountMenuExpanded,
-                        onDismissRequest = { accountMenuExpanded = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Nenhuma") },
-                            onClick = {
-                                onDraftChanged(draft.copy(accountId = null))
-                                accountMenuExpanded = false
-                            },
-                        )
-                        activeAccounts.forEach { account ->
-                            DropdownMenuItem(
-                                text = { Text(account.name) },
-                                onClick = {
-                                    onDraftChanged(draft.copy(accountId = account.id))
-                                    accountMenuExpanded = false
                                 },
                             )
                         }
@@ -956,110 +876,4 @@ private fun CategoryPanel(
             }
         }
     }
-}
-
-@Composable
-private fun AccountPanel(
-    state: ManagementUiState.Workspace,
-    onCreateAccount: (String, AccountType, String) -> Unit,
-    onDeactivateAccount: (String) -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    var institution by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf(AccountType.BANK) }
-    var typeMenuExpanded by remember { mutableStateOf(false) }
-
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Nome da conta") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(8.dp))
-        Column {
-            OutlinedButton(
-                onClick = { typeMenuExpanded = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Tipo: ${type.label()}")
-            }
-            DropdownMenu(
-                expanded = typeMenuExpanded,
-                onDismissRequest = { typeMenuExpanded = false },
-            ) {
-                AccountType.entries.forEach { accountType ->
-                    DropdownMenuItem(
-                        text = { Text(accountType.label()) },
-                        onClick = {
-                            type = accountType
-                            typeMenuExpanded = false
-                        },
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = institution,
-            onValueChange = { institution = it },
-            label = { Text("Instituição (opcional)") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = {
-                onCreateAccount(name, type, institution)
-            },
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (state.isSaving) "Salvando…" else "Adicionar conta")
-        }
-        Spacer(Modifier.height(12.dp))
-        if (state.accounts.isEmpty()) {
-            Text("Ainda não há contas. Cadastre a primeira acima.")
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(state.accounts, key = { it.id }) { account ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(account.name, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    listOfNotNull(
-                                        account.type.label(),
-                                        account.institutionName,
-                                        if (account.isActive) "Ativa" else "Inativa",
-                                    ).joinToString(" · ")
-                                )
-                            }
-                            if (account.isActive) {
-                                TextButton(onClick = { onDeactivateAccount(account.id) }) {
-                                    Text("Desativar")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun AccountType.label(): String = when (this) {
-    AccountType.BANK -> "Banco"
-    AccountType.CASH -> "Dinheiro"
-    AccountType.DIGITAL_WALLET -> "Carteira digital"
-    AccountType.CREDIT_CARD -> "Cartão"
-    AccountType.OTHER -> "Outro"
 }

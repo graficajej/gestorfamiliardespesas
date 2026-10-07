@@ -1,7 +1,6 @@
 package co.jmessias.gestor_familiar_despesas.composition
 
 import co.jmessias.gestor_familiar_despesas.data.bootstrap.SqlDelightFamilyBootstrapRepository
-import co.jmessias.gestor_familiar_despesas.data.repository.SqlDelightAccountRepository
 import co.jmessias.gestor_familiar_despesas.data.repository.SqlDelightCategoryRepository
 import co.jmessias.gestor_familiar_despesas.data.repository.SqlDelightExpenseRepository
 import co.jmessias.gestor_familiar_despesas.data.repository.SqlDelightInstallmentRepository
@@ -19,7 +18,6 @@ object ManagementViewModelFactory {
     ) = ManagementViewModel(
         bootstrapRepository = SqlDelightFamilyBootstrapRepository(database, dispatcher = dispatcher),
         categoryRepository = SqlDelightCategoryRepository(database, dispatcher),
-        accountRepository = SqlDelightAccountRepository(database, dispatcher),
         expenseRepository = SqlDelightExpenseRepository(database, dispatcher),
         paymentRepository = SqlDelightPaymentRepository(database, dispatcher),
         installmentRepository = SqlDelightInstallmentRepository(database, dispatcher),
